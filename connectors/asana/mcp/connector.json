@@ -1,0 +1,18 @@
+{
+  "name": "asana",
+  "description": "Asana API client — list projects/sections/tasks, read task details with custom fields, write custom field values",
+  "version": "1.0.0",
+  "secrets": [
+    { "key": "ASANA_TOKEN", "required": true, "description": "Asana Personal Access Token", "setup_url": "https://app.asana.com/0/my-apps" }
+  ],
+  "tools": [
+    { "name": "me", "description": "Get the authenticated user (gid, name, email)" },
+    { "name": "list_workspaces", "description": "List workspaces the user belongs to" },
+    { "name": "list_projects", "description": "List projects in a workspace, optionally filtered by name" },
+    { "name": "list_sections", "description": "List sections in a project" },
+    { "name": "list_tasks", "description": "List tasks filtered by project, section, assignee, and custom-field state" },
+    { "name": "get_task", "description": "Get full task details including custom fields, notes, permalink" },
+    { "name": "set_field", "description": "Set a single custom field on a task by field name + value (enum or text)" }
+  ],
+  "vault_writes": []
+}

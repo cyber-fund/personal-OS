@@ -1,0 +1,25 @@
+{
+  "name": "personal-os",
+  "version": "1.0.1",
+  "description": "Personal AI workspace built on Claude Code",
+  "type": "module",
+  "scripts": {
+    "setup": "bun scripts/setup.ts",
+    "setup:check": "bun scripts/setup.ts --check",
+    "collect": "bun scripts/collect.ts",
+    "generate-mcp": "bun scripts/generate-mcp-config.ts",
+    "server": "bun scripts/server/index.ts",
+    "build:touch-id": "bash connectors/_shared/touch-id/build.sh"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "telegram": "^2.26.21",
+    "hono": "^4.7.10",
+    "input": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

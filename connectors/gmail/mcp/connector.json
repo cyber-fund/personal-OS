@@ -1,0 +1,18 @@
+{
+  "name": "gmail",
+  "description": "Read and draft Gmail messages via Gmail REST API with OAuth2",
+  "version": "1.0.0",
+  "secrets": [
+    { "key": "GMAIL_CLIENT_ID", "required": true, "description": "Google OAuth2 client ID", "setup_url": "https://console.cloud.google.com/apis/credentials" },
+    { "key": "GMAIL_CLIENT_SECRET", "required": true, "description": "Google OAuth2 client secret" },
+    { "key": "GMAIL_REFRESH_TOKEN", "required": true, "description": "OAuth2 refresh token (obtained during setup)" }
+  ],
+  "tools": [
+    { "name": "list_emails", "description": "List recent emails from inbox" },
+    { "name": "read_email", "description": "Read full content of a specific email" },
+    { "name": "search_emails", "description": "Search emails with Gmail query syntax" },
+    { "name": "create_draft", "description": "Create a Gmail draft for user review" },
+    { "name": "list_calendar_events", "description": "List upcoming Google Calendar events" }
+  ],
+  "vault_writes": ["private/context/emails/"]
+}

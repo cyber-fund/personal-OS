@@ -1,0 +1,18 @@
+{
+  "name": "telegram",
+  "description": "Read and send Telegram messages via MTProto",
+  "version": "1.0.0",
+  "secrets": [
+    { "key": "TELEGRAM_API_ID", "description": "Telegram app API ID", "required": true, "setup_url": "https://my.telegram.org/apps" },
+    { "key": "TELEGRAM_API_HASH", "description": "Telegram app API hash", "required": true, "setup_url": "https://my.telegram.org/apps" }
+  ],
+  "tools": [
+    { "name": "read_unread", "description": "Read unread messages from tracked dialogs" },
+    { "name": "read_user", "description": "Read conversation history with a specific user" },
+    { "name": "read_requests", "description": "Read message requests (non-contacts)" },
+    { "name": "save_draft", "description": "Save a draft reply to a Telegram chat" },
+    { "name": "list_folders", "description": "List all Telegram folders" },
+    { "name": "list_folder_chats", "description": "List all chats in a folder" }
+  ],
+  "vault_writes": ["private/context/telegram/"]
+}

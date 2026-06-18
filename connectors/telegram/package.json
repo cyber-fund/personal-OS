@@ -1,0 +1,9 @@
+{
+  "name": "cybos-telegram-connector",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "telegram": "^2.26.21",
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "cybos-gmail-connector",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

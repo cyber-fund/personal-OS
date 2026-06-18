@@ -1,0 +1,64 @@
+{
+  "version": "2.0.0",
+  "skills": {
+    "cyber-telegram": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-telegram"]
+    },
+    "cyber-email": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-email"]
+    },
+    "cyber-brief": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-brief"]
+    },
+    "cyber-schedule": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-schedule"]
+    },
+    "cyber-setup": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-setup"]
+    },
+    "cyber-create-project": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-create-project"]
+    },
+    "cyber-research": {
+      "version": "1.0.0",
+      "source": "vc",
+      "commands": ["cyber-research"]
+    },
+    "cyber-twitter": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-twitter"]
+    },
+    "cyber-context": {
+      "version": "1.0.0",
+      "source": "core",
+      "commands": ["cyber-context"]
+    }
+  },
+  "commands": {
+    "cyber-telegram": { "skill": "cyber-telegram" },
+    "cyber-email": { "skill": "cyber-email" },
+    "cyber-brief": { "skill": "cyber-brief" },
+    "cyber-calendar": { "skill": null },
+    "cyber-save-calls": { "skill": null },
+    "cyber-schedule": { "skill": "cyber-schedule" },
+    "cyber-setup": { "skill": "cyber-setup" },
+    "cyber-create-project": { "skill": "cyber-create-project" },
+    "cyber-research": { "skill": "cyber-research" },
+    "cyber-twitter": { "skill": "cyber-twitter" },
+    "cyber-context": { "skill": "cyber-context" },
+    "cyber-update": { "skill": null }
+  }
+}

@@ -1,0 +1,21 @@
+# Generated files (user-specific) — anchored to repo root so skill artifact
+# templates named CLAUDE.md (under .claude/skills/.../artifacts/) stay tracked
+/CLAUDE.md
+/.mcp.json
+.claude/settings.local.json
+
+# Symlink to user's vault (created on setup completion)
+vault
+
+# Compiled binaries
+connectors/_shared/touch-id/touch-id-helper
+
+# Runtime
+node_modules/
+dist/
+*.lock
+
+# OS
+.DS_Store
+
+TODO

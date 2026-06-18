@@ -1,0 +1,20 @@
+{
+  "name": "twitter",
+  "description": "Read Twitter HomeTimeline via GraphQL API with cookie auth",
+  "version": "2.0.0",
+  "secrets": [
+    { "key": "TWITTER_AUTH_TOKEN", "required": true, "description": "auth_token cookie from x.com" },
+    { "key": "TWITTER_CT0", "required": true, "description": "ct0 cookie (CSRF token) from x.com" }
+  ],
+  "tools": [
+    { "name": "sync_feed", "description": "Fetch latest HomeTimeline tweets and save to vault" },
+    { "name": "read_account", "description": "Read recent posts from a specific account" },
+    { "name": "read_feed_summary", "description": "Read the aggregated feed digest from vault" },
+    { "name": "read_my_posts", "description": "Read your own posted tweets with engagement metrics" },
+    { "name": "set_my_handle", "description": "Set your Twitter handle for own-post tracking" },
+    { "name": "add_account", "description": "Add a Twitter account to the tracking list" },
+    { "name": "remove_account", "description": "Remove a Twitter account from the tracking list" },
+    { "name": "list_accounts", "description": "List all tracked Twitter accounts" }
+  ],
+  "vault_writes": ["private/context/twitter/"]
+}

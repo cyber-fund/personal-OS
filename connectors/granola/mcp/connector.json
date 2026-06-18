@@ -1,0 +1,15 @@
+{
+  "name": "granola",
+  "description": "Fetch meetings from Granola API and save to vault",
+  "version": "3.0.0",
+  "secrets": [
+    { "key": "GRANOLA_API_KEY", "required": true, "description": "Granola API key (grn_...)", "setup_url": "https://docs.granola.ai/introduction" }
+  ],
+  "tools": [
+    { "name": "list_meetings", "description": "List recent meetings from Granola" },
+    { "name": "get_meeting", "description": "Get meeting details with summary and transcript" },
+    { "name": "save_call", "description": "Save a meeting (summary + transcript) to vault" },
+    { "name": "list_saved_calls", "description": "List meeting IDs already saved in vault" }
+  ],
+  "vault_writes": ["private/context/calls/"]
+}

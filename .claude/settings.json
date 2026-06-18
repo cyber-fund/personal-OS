@@ -1,0 +1,67 @@
+{
+  "env": {
+    "CYBOS_VERSION": "1.0.0"
+  },
+  "permissions": {
+    "allow": [
+      "Bash", "Read", "Write", "Edit", "Glob", "Grep",
+      "WebFetch(domain:*)", "WebSearch",
+      "Task", "SlashCommand", "ExitPlanMode",
+
+      "mcp__cybos-telegram__read_unread",
+      "mcp__cybos-telegram__read_user",
+      "mcp__cybos-telegram__read_requests",
+      "mcp__cybos-telegram__save_draft",
+      "mcp__cybos-telegram__list_folders",
+      "mcp__cybos-telegram__list_folder_chats",
+      "mcp__cybos-twitter__sync_feed",
+      "mcp__cybos-twitter__read_account",
+      "mcp__cybos-twitter__read_feed_summary",
+      "mcp__cybos-twitter__add_account",
+      "mcp__cybos-twitter__remove_account",
+      "mcp__cybos-twitter__list_accounts",
+      "mcp__cybos-granola__sync_calls",
+      "mcp__cybos-granola__list_calls",
+      "mcp__cybos-granola__read_call",
+      "mcp__cybos-gmail__list_emails",
+      "mcp__cybos-gmail__read_email",
+      "mcp__cybos-gmail__search_emails",
+      "mcp__cybos-gmail__create_draft",
+
+      "mcp__claude_ai_Gmail__*",
+      "mcp__claude_ai_Google_Calendar__*",
+      "mcp__claude_ai_Typefully__*",
+      "mcp__claude_ai_Notion__*"
+    ],
+    "deny": [
+      "Bash(security *)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/bootstrap.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun scripts/log-prompt.ts"
+          }
+        ]
+      }
+    ]
+  }
+}
