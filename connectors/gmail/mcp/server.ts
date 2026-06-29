@@ -27,11 +27,21 @@ import {
 } from "../../_shared/vault";
 import { appendToInbox } from "../../shared/inbox";
 import { getSecretUngated } from "../../_shared/keychain-gate";
+import {
+  extractDocText,
+  extractSheetText,
+  extractSlidesText,
+  buildCalendarEventBody,
+  type CalendarEventArgs,
+} from "./google";
 
 // --- Constants ---
 
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
+const DOCS_API_BASE = "https://docs.googleapis.com/v1";
+const SHEETS_API_BASE = "https://sheets.googleapis.com/v4";
+const SLIDES_API_BASE = "https://slides.googleapis.com/v1";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SYNC_DAYS_DEFAULT = 7;
 
@@ -244,6 +254,60 @@ async function listCalendarEvents(creds: Credentials, days: number = 2): Promise
 
   const data = await calendarFetch(creds, `/calendars/primary/events?${params}`);
   return (data.items ?? []).filter((e: CalendarEvent) => e.status !== "cancelled");
+}
+
+// --- Generic Google API (Docs / Sheets / Slides / Calendar writes) ---
+
+async function googleApiFetch(creds: Credentials, url: string, options?: RequestInit): Promise<any> {
+  const token = await getAccessToken(creds);
+  const doFetch = (t: string) =>
+    fetch(url, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${t}`,
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+
+  let res = await doFetch(token);
+  if (res.status === 401) {
+    cachedAccessToken = null;
+    res = await doFetch(await getAccessToken(creds));
+  }
+  if (!res.ok) {
+    const err = await res.text().catch(() => "");
+    throw new Error(`Google API error ${res.status}: ${err}`);
+  }
+  return res.json();
+}
+
+async function readDoc(creds: Credentials, documentId: string): Promise<string> {
+  const doc = await googleApiFetch(creds, `${DOCS_API_BASE}/documents/${documentId}`);
+  return extractDocText(doc);
+}
+
+async function readSheet(creds: Credentials, spreadsheetId: string, range: string): Promise<string> {
+  const valueRange = await googleApiFetch(
+    creds,
+    `${SHEETS_API_BASE}/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`
+  );
+  return extractSheetText(valueRange);
+}
+
+async function readSlides(creds: Credentials, presentationId: string): Promise<string> {
+  const presentation = await googleApiFetch(creds, `${SLIDES_API_BASE}/presentations/${presentationId}`);
+  return extractSlidesText(presentation);
+}
+
+async function createCalendarEvent(creds: Credentials, args: CalendarEventArgs): Promise<{ id: string; htmlLink?: string }> {
+  // sendUpdates=none → never emails attendees; the user adds the event, no invites fire.
+  const event = await googleApiFetch(
+    creds,
+    `${CALENDAR_API_BASE}/calendars/primary/events?sendUpdates=none`,
+    { method: "POST", body: JSON.stringify(buildCalendarEventBody(args)) }
+  );
+  return { id: event.id, htmlLink: event.htmlLink };
 }
 
 // --- Message parsing ---
@@ -561,6 +625,57 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["to", "subject", "body"],
       },
     },
+    {
+      name: "read_doc",
+      description: "Read a Google Doc as plain text by document ID (read-only).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          document_id: { type: "string", description: "Google Doc ID (from the doc URL)" },
+        },
+        required: ["document_id"],
+      },
+    },
+    {
+      name: "read_sheet",
+      description: "Read values from a Google Sheet by spreadsheet ID and A1 range (read-only).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          spreadsheet_id: { type: "string", description: "Google Sheet ID (from the URL)" },
+          range: { type: "string", description: "A1 range, e.g. 'Sheet1!A1:D50' (default 'A1:Z1000')", default: "A1:Z1000" },
+        },
+        required: ["spreadsheet_id"],
+      },
+    },
+    {
+      name: "read_slides",
+      description: "Read all text from a Google Slides presentation by ID (read-only).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          presentation_id: { type: "string", description: "Google Slides presentation ID (from the URL)" },
+        },
+        required: ["presentation_id"],
+      },
+    },
+    {
+      name: "create_calendar_event",
+      description: "Create an event on the user's primary Google Calendar. WRITE action — always confirm details with the user before calling. Does not send invites to attendees (sendUpdates=none).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          summary: { type: "string", description: "Event title" },
+          start: { type: "string", description: "Start: ISO datetime '2026-07-01T15:00:00' or all-day date '2026-07-01'" },
+          end: { type: "string", description: "End: ISO datetime or all-day date" },
+          description: { type: "string", description: "Event description (optional)" },
+          location: { type: "string", description: "Location or meeting link (optional)" },
+          attendees: { type: "array", items: { type: "string" }, description: "Attendee email addresses (optional; no invite emails are sent)" },
+          time_zone: { type: "string", description: "IANA timezone, e.g. 'Europe/London' (optional)" },
+        },
+        required: ["summary", "start", "end"],
+      },
+    },
   ],
 }));
 
@@ -705,6 +820,61 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: "text", text: `Draft created (ID: ${draftId}). Open Gmail to review and send.` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `Error creating draft: ${e.message}` }] };
+      }
+    }
+
+    case "read_doc": {
+      const documentId = (args as any)?.document_id;
+      if (!documentId) return { content: [{ type: "text", text: "Error: document_id required" }] };
+      try {
+        const text = await readDoc(creds, documentId);
+        return { content: [{ type: "text", text: text || "(empty document)" }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Error reading doc: ${e.message}` }] };
+      }
+    }
+
+    case "read_sheet": {
+      const spreadsheetId = (args as any)?.spreadsheet_id;
+      if (!spreadsheetId) return { content: [{ type: "text", text: "Error: spreadsheet_id required" }] };
+      const range = (args as any)?.range ?? "A1:Z1000";
+      try {
+        const text = await readSheet(creds, spreadsheetId, range);
+        return { content: [{ type: "text", text: text || "(no values in range)" }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Error reading sheet: ${e.message}` }] };
+      }
+    }
+
+    case "read_slides": {
+      const presentationId = (args as any)?.presentation_id;
+      if (!presentationId) return { content: [{ type: "text", text: "Error: presentation_id required" }] };
+      try {
+        const text = await readSlides(creds, presentationId);
+        return { content: [{ type: "text", text: text || "(no text in presentation)" }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Error reading slides: ${e.message}` }] };
+      }
+    }
+
+    case "create_calendar_event": {
+      const a = args as any;
+      if (!a?.summary || !a?.start || !a?.end) {
+        return { content: [{ type: "text", text: "Error: summary, start, and end are required" }] };
+      }
+      try {
+        const ev = await createCalendarEvent(creds, {
+          summary: a.summary,
+          start: a.start,
+          end: a.end,
+          description: a.description,
+          location: a.location,
+          attendees: Array.isArray(a.attendees) ? a.attendees : undefined,
+          timeZone: a.time_zone,
+        });
+        return { content: [{ type: "text", text: `Event created: "${a.summary}" (${a.start} → ${a.end})${ev.htmlLink ? `\n${ev.htmlLink}` : ""}` }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Error creating event: ${e.message}` }] };
       }
     }
 

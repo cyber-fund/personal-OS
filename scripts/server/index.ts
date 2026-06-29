@@ -14,6 +14,7 @@ import { spawnSync } from "child_process";
 import { TelegramClient, Api } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { computeCheck } from "telegram/Password";
+import { WORKSPACE_SCOPES } from "../../connectors/gmail/mcp/google";
 import {
   getConfig,
   saveConfig,
@@ -177,11 +178,7 @@ app.get("/api/gmail/auth-url", (c) => {
   if (!clientId) return c.json({ error: "client_id required" }, 400);
 
   const redirectUri = `http://localhost:${PORT}/api/gmail/callback`;
-  const scopes = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.compose",
-    "https://www.googleapis.com/auth/calendar.readonly",
-  ].join(" ");
+  const scopes = WORKSPACE_SCOPES.join(" ");
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -419,10 +416,17 @@ const SETUP_HTML = `<!DOCTYPE html>
       <input id="granola_api_key" placeholder="grn_..." type="password">
       <p style="color:#666; font-size:12px; margin-top:4px">Open Granola app → Settings → API → Create new key.</p>
 
-      <h3 style="margin-top:24px; color:#fff">Google (Gmail + Calendar)</h3>
-      <p style="color:#888; font-size:13px; margin-bottom:8px">Reads/drafts emails and fetches calendar events. Requires a Google Cloud project.</p>
+      <h3 style="margin-top:24px; color:#fff">Google Workspace (Gmail + Calendar + Docs/Sheets/Slides)</h3>
+      <p style="color:#888; font-size:13px; margin-bottom:8px">Reads/drafts emails, reads + creates calendar events (writes need your approval), and reads Google Docs, Sheets, and Slides. Requires a Google Cloud project.</p>
       <div class="hint">
-        <strong>Setup:</strong> Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#cfe6ff">Google Cloud Console</a> → Create OAuth 2.0 Client ID (<strong>Web application</strong> type). Enable both the <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" style="color:#cfe6ff">Gmail API</a> and the <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" style="color:#cfe6ff">Google Calendar API</a>. Add <code>http://localhost:3847/api/gmail/callback</code> as an authorized redirect URI.
+        <strong>Setup:</strong> Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#cfe6ff">Google Cloud Console</a> → Create OAuth 2.0 Client ID (<strong>Web application</strong> type). Add <code>http://localhost:3847/api/gmail/callback</code> as an authorized redirect URI.<br><br>
+        <strong>Enable all five APIs</strong> in the API Library (this connector needs them all — auth will fail to grant the scopes otherwise):
+        <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" style="color:#cfe6ff">Gmail</a>,
+        <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" style="color:#cfe6ff">Calendar</a>,
+        <a href="https://console.cloud.google.com/apis/library/docs.googleapis.com" target="_blank" style="color:#cfe6ff">Docs</a>,
+        <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank" style="color:#cfe6ff">Sheets</a>, and
+        <a href="https://console.cloud.google.com/apis/library/slides.googleapis.com" target="_blank" style="color:#cfe6ff">Slides</a>.<br><br>
+        On the consent screen, <strong>approve every requested scope</strong> (Docs/Sheets/Slides read-only + calendar events). If you previously authorized with fewer scopes, click "Authorize Gmail" again to re-consent and mint a new token.
       </div>
       <label>OAuth Client ID</label>
       <input id="gmail_client_id" placeholder="123456789.apps.googleusercontent.com">
@@ -444,6 +448,19 @@ const SETUP_HTML = `<!DOCTYPE html>
       <label>ct0 cookie</label>
       <input id="twitter_ct0" placeholder="paste ct0 value" type="password">
       <p style="color:#666; font-size:12px; margin-top:4px">Stored in macOS Keychain, never in plaintext. Use a dedicated Twitter account — not your main one.</p>
+
+      <h3 style="margin-top:24px; color:#fff">Slack</h3>
+      <p style="color:#888; font-size:13px; margin-bottom:8px">Optional. Reads channels, messages, and threads, and posts messages. Requires a Slack app with a bot token.</p>
+      <div class="hint">
+        <strong>Setup:</strong> Go to <a href="https://api.slack.com/apps" target="_blank" style="color:#cfe6ff">api.slack.com/apps</a> → Create New App → From scratch → pick your workspace. Under <strong>OAuth &amp; Permissions</strong>, add these Bot Token scopes: <code>channels:read</code>, <code>groups:read</code>, <code>channels:history</code>, <code>groups:history</code>, <code>chat:write</code>, <code>users:read</code>. Then click <strong>Install to Workspace</strong> and copy the <code>xoxb-</code> token.<br><br>
+        The bot must be invited to any channel it reads or posts in (<code>/invite @your-app</code>).<br><br>
+        <strong>Search (optional):</strong> message search needs a <strong>user</strong> token. Add a <code>search:read</code> User Token scope, reinstall, and paste the <code>xoxp-</code> token below.
+      </div>
+      <label>Bot Token (xoxb-…)</label>
+      <input id="slack_bot_token" placeholder="xoxb-..." type="password">
+      <label>User Token (xoxp-…) — optional, enables search</label>
+      <input id="slack_user_token" placeholder="xoxp-..." type="password">
+      <p style="color:#666; font-size:12px; margin-top:4px">Stored in macOS Keychain, never in plaintext.</p>
     </div>
 
     <button class="btn-secondary btn" onclick="nextStep(1)">Back</button>
@@ -622,6 +639,17 @@ const SETUP_HTML = `<!DOCTYPE html>
         body: JSON.stringify({ connector: 'twitter', key: 'TWITTER_CT0', value: twCt0 }) });
     }
 
+    const slackBotToken = document.getElementById('slack_bot_token').value.trim();
+    const slackUserToken = document.getElementById('slack_user_token').value.trim();
+    if (slackBotToken) {
+      await fetch('/api/secrets', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ connector: 'slack', key: 'SLACK_BOT_TOKEN', value: slackBotToken }) });
+    }
+    if (slackUserToken) {
+      await fetch('/api/secrets', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ connector: 'slack', key: 'SLACK_USER_TOKEN', value: slackUserToken }) });
+    }
+
     const gmailEnabled = !!(gmailClientId && gmailClientSecret && gmailAuthorized);
 
     await fetch('/api/connectors', { method: 'POST', headers: {'Content-Type':'application/json'},
@@ -630,7 +658,8 @@ const SETUP_HTML = `<!DOCTYPE html>
           telegram: { enabled: !!tgId, version: '1.0.0' },
           twitter: { enabled: !!(twAuthToken && twCt0), version: '2.0.0' },
           gmail: { enabled: gmailEnabled, version: '1.0.0' },
-          granola: { enabled: !!granolaKey, version: '3.0.0' }
+          granola: { enabled: !!granolaKey, version: '3.0.0' },
+          slack: { enabled: !!slackBotToken, version: '1.0.0' }
         },
         builtin_mcps: {
           typefully: { required: true, connected: false },
@@ -748,9 +777,11 @@ const SETUP_HTML = `<!DOCTYPE html>
   function showReview() {
     const vault = document.getElementById('vault_path').value;
     const tg = document.getElementById('tg_api_id').value ? 'Configured' : 'Skipped';
-    const gmail = gmailAuthorized ? 'Authorized (Gmail + Calendar)' : (document.getElementById('gmail_client_id').value ? 'Credentials set (not authorized)' : 'Not configured');
+    const gmail = gmailAuthorized ? 'Authorized (Gmail + Calendar + Docs/Sheets/Slides)' : (document.getElementById('gmail_client_id').value ? 'Credentials set (not authorized)' : 'Not configured');
     const tw = (document.getElementById('twitter_auth_token').value && document.getElementById('twitter_ct0').value) ? 'Cookies set' : 'Not configured';
     const granola = document.getElementById('granola_api_key').value ? 'API key set' : 'Not configured';
+    const slackBot = document.getElementById('slack_bot_token').value;
+    const slack = slackBot ? (document.getElementById('slack_user_token').value ? 'Bot + user token set' : 'Bot token set') : 'Not configured';
 
     document.getElementById('review-summary').innerHTML =
       '<p><strong>Vault:</strong> ' + vault + '</p>' +
@@ -758,6 +789,7 @@ const SETUP_HTML = `<!DOCTYPE html>
       '<p><strong>Google:</strong> ' + gmail + '</p>' +
       '<p><strong>Twitter:</strong> ' + tw + '</p>' +
       '<p><strong>Granola:</strong> ' + granola + '</p>' +
+      '<p><strong>Slack:</strong> ' + slack + '</p>' +
       '<p style="color:#888; margin-top:12px">After setup, connect Typefully via <code>/mcp</code> in Claude Code.</p>';
   }
 

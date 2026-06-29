@@ -1,0 +1,17 @@
+{
+  "name": "slack",
+  "description": "Slack connector (Web API): read channels/threads and post messages. Read uses a bot token; search needs a user token.",
+  "version": "1.0.0",
+  "secrets": [
+    { "key": "SLACK_BOT_TOKEN", "required": true, "description": "Slack bot token (xoxb-...). Scopes: channels:read, groups:read, channels:history, groups:history, users:read, chat:write.", "setup_url": "https://api.slack.com/apps" },
+    { "key": "SLACK_USER_TOKEN", "required": false, "description": "Slack user token (xoxp-...) — only needed for search_messages (search:read)." }
+  ],
+  "tools": [
+    { "name": "list_channels", "description": "List channels the bot can see" },
+    { "name": "read_channel", "description": "Read recent messages from a channel" },
+    { "name": "read_thread", "description": "Read replies in a thread" },
+    { "name": "search_messages", "description": "Search messages (requires user token)" },
+    { "name": "post_message", "description": "Post a message to a channel/thread (WRITE — confirm with user)" }
+  ],
+  "vault_writes": []
+}

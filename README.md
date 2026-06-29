@@ -1,6 +1,6 @@
 # personal-OS
 
-A personal AI workspace built on Claude Code. It connects your Telegram, Gmail, Calendar, Twitter, Granola, Asana, Typefully, and Notion into one system where Claude works with full context across your messages, meetings, research, and projects.
+A personal AI workspace built on Claude Code. It connects your Telegram, Google Workspace (Gmail, Calendar, Docs, Sheets, Slides), Twitter, Granola, Asana, Slack, Typefully, and Notion into one system where Claude works with full context across your messages, meetings, research, and projects.
 
 > **This is a starting point, not a finished product.** personal-OS gives you a clean, working baseline — a handful of skills, connectors, and a vault structure — so you have *something* running on day one. It is meant to **evolve**: as you use it, the repetitive work you do with Claude is what tells you which new skills to add, which workflows to encode, and which defaults to change. Treat the skills below as examples of the pattern, then grow your own. See [Make it yours](#make-it-yours).
 
@@ -94,9 +94,10 @@ Three cleanly separated layers:
 ├──────────────────────────────────────┤
 │  Layer 2: CONNECTORS                 │
 │  Custom: connectors/{telegram,       │
-│    twitter,gmail,granola,asana}/     │
-│  Built-in: Calendar, Typefully,      │
-│    Notion (via /mcp)                 │
+│    twitter,gmail,granola,asana,      │
+│    slack}/  (gmail = Workspace)      │
+│  Built-in: Typefully, Notion         │
+│    (via /mcp)                        │
 ├──────────────────────────────────────┤
 │  Layer 1: DATA VAULT                 │
 │  ~/personal-OS-vault/                │
@@ -124,16 +125,18 @@ Your personal data and secrets live **outside** this repo by design — so the c
 | Connector | What it does | Auth |
 |-----------|-------------|------|
 | **Telegram** | Read messages, save drafts via GramJS MTProto | Keychain (API_ID, API_HASH, SESSION) |
-| **Gmail** | Read, search, draft emails via Gmail REST API | Keychain (OAuth2 client + refresh token) |
+| **Google Workspace** | Gmail read/draft, Calendar read **+ event create** (approval-gated), read-only Docs/Sheets/Slides | Keychain (OAuth2 client + refresh token) |
 | **Twitter** | Read the Following timeline, track accounts | Keychain (auth_token + ct0 cookies) |
-| **Granola** | Extract meeting transcripts and AI summaries | Keychain (API key) |
+| **Granola** | Extract meeting transcripts + summaries. Two modes: **API** (paid key) or **scrape** (no key — reads the local Granola cache; ⚠ unstable, may break on Granola updates) | Keychain (API key) for API mode; none for scrape |
 | **Asana** | Read projects/tasks, set fields, comment | Keychain (access token) |
+| **Slack** | Read channels/threads, post messages (approval-gated); search needs a user token | Keychain (bot token; optional user token) |
+
+> The Google connector's directory is still `connectors/gmail/` and its MCP name is `cybos-gmail` (kept for compatibility), but it now covers all of Google Workspace. Expanding Docs/Sheets/Slides + calendar write broadened the OAuth scopes — if you connected Gmail before this change, **re-run the OAuth flow** so your refresh token carries the new scopes.
 
 ### Built-in (connected via `/mcp`)
 
 | Service | What it does |
 |---------|-------------|
-| **Google Calendar** | List upcoming events |
 | **Typefully** | Schedule posts to Twitter/LinkedIn |
 | **Notion** | Search, read, create pages |
 

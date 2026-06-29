@@ -194,11 +194,40 @@ Skills live in `.claude/skills/`. Run them with `/skill-name` in Claude Code.
 
 ## Connectors
 
-Custom connectors in `connectors/` provide Telegram, Twitter, Gmail, Granola, and Asana integrations.
+Custom connectors in `connectors/` provide Telegram, Twitter, Google Workspace (Gmail,
+Calendar, Docs, Sheets, Slides), Granola, Asana, and Slack integrations.
 Secrets are stored in macOS Keychain, never in plaintext.
 ```
 
 - Only create if missing. Do not overwrite unless `--force`.
+
+---
+
+### Phase 7.5: CONNECTOR CHOICES (chat)
+
+Connectors are enabled/credentialed in the web setup wizard, but two of them need an
+explicit choice — surface these in chat during setup (and whenever the user enables the
+connector later):
+
+**Granola — pick a mode:**
+- **API mode** (recommended if they have a *paid* Granola plan): store `GRANOLA_API_KEY` in
+  Keychain (`cybos.granola`). Stable, official API.
+- **Scrape mode** (no paid plan): reads Granola's local cache on disk — no key needed. ⚠ Warn
+  the user this is **unstable**: it depends on Granola's internal, undocumented file format and
+  **may break on a Granola update and require a fix**. Persist the choice as
+  `custom_connectors.granola.mode` (`"api"` | `"scrape"`) in `~/.cyboslite/connectors.json`.
+  If unset, the connector infers: API key present → api, otherwise scrape.
+
+**Google Workspace — scope re-auth:**
+- The connector now covers Gmail, Calendar (read **and** event create), and read-only Docs,
+  Sheets, Slides. These need broadened OAuth scopes. If the user already connected Gmail under
+  the old (narrower) scopes, they must **re-run the OAuth flow** so the new refresh token carries
+  Docs/Sheets/Slides + `calendar.events`. Event creation is a write — the agent must confirm
+  details with the user before calling `create_calendar_event` (no invites are emailed).
+
+**Slack:** needs a bot token (`SLACK_BOT_TOKEN`, `xoxb-…`) in Keychain (`cybos.slack`) for
+reading channels/threads and posting. `search_messages` additionally needs a user token
+(`SLACK_USER_TOKEN`, `xoxp-…`). Posting is a write — confirm text + destination first.
 
 ---
 

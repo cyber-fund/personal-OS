@@ -17,10 +17,13 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
+import { homedir } from "os";
 import { join } from "path";
 import { resolveVaultPath, ensureVaultDir, nameToSlug } from "../../_shared/vault";
 import { appendToInbox } from "../../shared/inbox";
 import { getSecretUngated } from "../../_shared/keychain-gate";
+import type { GranolaNoteListItem, GranolaNoteDetail, GranolaMode } from "./types";
+import { scrapeListNotes, scrapeGetNote, findCachePath } from "./scrape";
 
 // --- Constants ---
 
@@ -30,6 +33,47 @@ const GRANOLA_API_BASE = "https://public-api.granola.ai/v1";
 
 function getApiKey(): string | null {
   return getSecretUngated("granola", "GRANOLA_API_KEY", "mcp");
+}
+
+/**
+ * Resolve which mode to use:
+ *   1. explicit `custom_connectors.granola.mode` in ~/.cyboslite/connectors.json
+ *   2. otherwise: "api" if an API key is present, else "scrape"
+ * The setup flow lets the user pick; this just honours the choice (or infers it).
+ */
+function resolveMode(): GranolaMode {
+  try {
+    const cfgPath = join(homedir(), ".cyboslite", "connectors.json");
+    if (existsSync(cfgPath)) {
+      const cfg = JSON.parse(readFileSync(cfgPath, "utf-8"));
+      const mode = cfg?.custom_connectors?.granola?.mode;
+      if (mode === "api" || mode === "scrape") return mode;
+    }
+  } catch {
+    /* fall through to inference */
+  }
+  return getApiKey() ? "api" : "scrape";
+}
+
+/** List meetings via whichever mode is active. */
+async function listNotesUnified(createdAfter?: string): Promise<GranolaNoteListItem[]> {
+  if (resolveMode() === "scrape") return scrapeListNotes(createdAfter);
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("Granola API mode selected but no GRANOLA_API_KEY is set.");
+  return apiListNotes(apiKey, createdAfter);
+}
+
+/** Get one meeting's detail via whichever mode is active. */
+async function getNoteUnified(noteId: string, includeTranscript: boolean): Promise<GranolaNoteDetail> {
+  if (resolveMode() === "scrape") {
+    const note = scrapeGetNote(noteId);
+    if (!note) throw new Error(`Meeting ${noteId} not found in local Granola cache.`);
+    if (!includeTranscript) return { ...note, transcript: [] };
+    return note;
+  }
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("Granola API mode selected but no GRANOLA_API_KEY is set.");
+  return apiGetNote(apiKey, noteId, includeTranscript);
 }
 
 // --- Granola API helpers ---
@@ -50,29 +94,7 @@ async function granolaFetch(apiKey: string, path: string): Promise<any> {
   return res.json();
 }
 
-interface GranolaNoteListItem {
-  id: string;
-  title: string;
-  created_at: string;
-  updated_at?: string;
-}
-
-interface GranolaNoteDetail {
-  id: string;
-  title: string;
-  created_at: string;
-  updated_at?: string;
-  summary?: string;
-  transcript?: Array<{
-    text: string;
-    source?: string;
-    start_timestamp?: number;
-    end_timestamp?: number;
-  }>;
-  people?: Array<{ name?: string; email?: string }>;
-}
-
-async function listNotes(apiKey: string, createdAfter?: string): Promise<GranolaNoteListItem[]> {
+async function apiListNotes(apiKey: string, createdAfter?: string): Promise<GranolaNoteListItem[]> {
   const all: GranolaNoteListItem[] = [];
   let cursor: string | undefined;
 
@@ -92,7 +114,7 @@ async function listNotes(apiKey: string, createdAfter?: string): Promise<Granola
   return all;
 }
 
-async function getNote(apiKey: string, noteId: string, includeTranscript: boolean = false): Promise<GranolaNoteDetail> {
+async function apiGetNote(apiKey: string, noteId: string, includeTranscript: boolean = false): Promise<GranolaNoteDetail> {
   const params = includeTranscript ? "?include=transcript" : "";
   return granolaFetch(apiKey, `/notes/${noteId}${params}`);
 }
@@ -145,9 +167,9 @@ function updateIndex(outputBase: string, newCalls: SavedCall[]): void {
 // --- --collect mode ---
 
 if (process.argv.includes("--collect")) {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    console.log("Granola: no API key configured, skipping");
+  const mode = resolveMode();
+  if (mode === "scrape" && !findCachePath()) {
+    console.log("Granola: scrape mode but no local cache found, skipping");
     console.log("0 calls extracted");
     process.exit(0);
   }
@@ -155,7 +177,7 @@ if (process.argv.includes("--collect")) {
   try {
     // Fetch meetings from the last 30 days
     const createdAfter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const notes = await listNotes(apiKey, createdAfter);
+    const notes = await listNotesUnified(createdAfter);
 
     // Determine which are already saved
     const outputBase = resolveVaultPath("private", "context", "calls");
@@ -187,7 +209,7 @@ if (process.argv.includes("--collect")) {
 
     for (const note of newNotes) {
       try {
-        const detail = await getNote(apiKey, note.id, true);
+        const detail = await getNoteUnified(note.id, true);
         const dateStr = formatDate(detail.created_at);
         const slug = nameToSlug(detail.title);
         const dirName = `${dateStr}_${slug}`;
@@ -337,15 +359,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   switch (name) {
     case "list_meetings": {
-      if (!apiKey) {
-        return { content: [{ type: "text", text: "No Granola API key configured. Store it with:\n  security add-generic-password -s cybos.granola -a GRANOLA_API_KEY -w 'grn_...' -U" }] };
+      const mode = resolveMode();
+      if (mode === "api" && !apiKey) {
+        return { content: [{ type: "text", text: "Granola is in API mode but no key is set. Store one with:\n  security add-generic-password -s cybos.granola -a GRANOLA_API_KEY -w 'grn_...' -U\nOr switch to scrape mode (no key, reads the local Granola cache)." }] };
+      }
+      if (mode === "scrape" && !findCachePath()) {
+        return { content: [{ type: "text", text: "Granola scrape mode: local cache not found. Open Granola at least once, or set GRANOLA_API_KEY for API mode." }] };
       }
 
       const days = (args as any)?.days ?? 30;
       const createdAfter = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
       try {
-        const notes = await listNotes(apiKey, createdAfter);
+        const notes = await listNotesUnified(createdAfter);
         if (notes.length === 0) {
           return { content: [{ type: "text", text: `No meetings in the last ${days} days.` }] };
         }
@@ -362,8 +388,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     case "get_meeting": {
-      if (!apiKey) {
-        return { content: [{ type: "text", text: "No Granola API key configured." }] };
+      const mode = resolveMode();
+      if (mode === "api" && !apiKey) {
+        return { content: [{ type: "text", text: "Granola is in API mode but no key is set." }] };
       }
 
       const noteId = (args as any)?.note_id;
@@ -372,7 +399,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const includeTranscript = (args as any)?.include_transcript ?? true;
 
       try {
-        const note = await getNote(apiKey, noteId, includeTranscript);
+        const note = await getNoteUnified(noteId, includeTranscript);
 
         const parts: string[] = [
           `# ${note.title}`,

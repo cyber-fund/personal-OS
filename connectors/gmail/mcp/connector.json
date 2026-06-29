@@ -1,18 +1,31 @@
 {
   "name": "gmail",
-  "description": "Read and draft Gmail messages via Gmail REST API with OAuth2",
-  "version": "1.0.0",
+  "description": "Google Workspace connector (OAuth2): Gmail read/draft, Calendar read + event create, and read-only Docs/Sheets/Slides.",
+  "version": "2.0.0",
+  "reauth_note": "Adding Docs/Sheets/Slides read + calendar.events write expanded the OAuth scopes. Existing refresh tokens lack the new permissions — re-mint a token with `bun scripts/reauth-gmail.ts` (no need to re-run the full setup wizard). Files are read by explicit ID, so no Drive scope is requested.",
+  "scopes": [
+    "gmail.readonly",
+    "gmail.compose",
+    "calendar.events",
+    "documents.readonly",
+    "spreadsheets.readonly",
+    "presentations.readonly"
+  ],
   "secrets": [
     { "key": "GMAIL_CLIENT_ID", "required": true, "description": "Google OAuth2 client ID", "setup_url": "https://console.cloud.google.com/apis/credentials" },
     { "key": "GMAIL_CLIENT_SECRET", "required": true, "description": "Google OAuth2 client secret" },
-    { "key": "GMAIL_REFRESH_TOKEN", "required": true, "description": "OAuth2 refresh token (obtained during setup)" }
+    { "key": "GMAIL_REFRESH_TOKEN", "required": true, "description": "OAuth2 refresh token (obtained during setup; must carry the broadened scopes)" }
   ],
   "tools": [
     { "name": "list_emails", "description": "List recent emails from inbox" },
     { "name": "read_email", "description": "Read full content of a specific email" },
     { "name": "search_emails", "description": "Search emails with Gmail query syntax" },
     { "name": "create_draft", "description": "Create a Gmail draft for user review" },
-    { "name": "list_calendar_events", "description": "List upcoming Google Calendar events" }
+    { "name": "list_calendar_events", "description": "List upcoming Google Calendar events" },
+    { "name": "read_doc", "description": "Read a Google Doc as plain text (read-only)" },
+    { "name": "read_sheet", "description": "Read values from a Google Sheet by range (read-only)" },
+    { "name": "read_slides", "description": "Read all text from a Google Slides presentation (read-only)" },
+    { "name": "create_calendar_event", "description": "Create an event on the primary calendar (WRITE — confirm with user; no invites sent)" }
   ],
   "vault_writes": ["private/context/emails/"]
 }

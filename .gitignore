@@ -18,4 +18,8 @@ dist/
 # OS
 .DS_Store
 
+# Local env (test fixture IDs, never secrets)
+.env
+.env.*
+
 TODO

@@ -1,9 +1,17 @@
 {
   "name": "granola",
-  "description": "Fetch meetings from Granola API and save to vault",
-  "version": "3.0.0",
+  "description": "Fetch meetings from Granola and save to vault. Two modes: 'api' (paid Granola API key) or 'scrape' (no key — reads the local Granola cache; UNSTABLE, may break on Granola updates).",
+  "version": "4.0.0",
+  "mode": {
+    "config_key": "custom_connectors.granola.mode",
+    "values": ["api", "scrape"],
+    "default": "api if GRANOLA_API_KEY is set, otherwise scrape"
+  },
   "secrets": [
-    { "key": "GRANOLA_API_KEY", "required": true, "description": "Granola API key (grn_...)", "setup_url": "https://docs.granola.ai/introduction" }
+    { "key": "GRANOLA_API_KEY", "required": false, "description": "Granola API key (grn_...). Required only for 'api' mode (paid plans). Leave unset to use 'scrape' mode.", "setup_url": "https://docs.granola.ai/introduction" }
+  ],
+  "env": [
+    { "key": "GRANOLA_CACHE_PATH", "required": false, "description": "Override the local cache path used by scrape mode. Defaults to ~/Library/Application Support/Granola/cache-v6.json.enc" }
   ],
   "tools": [
     { "name": "list_meetings", "description": "List recent meetings from Granola" },
